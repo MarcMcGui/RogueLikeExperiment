@@ -1,3 +1,0 @@
-/Volumes/Extreme SSD/Rogue Style Game/build/CMakeFiles/RogueGame.dir
-/Volumes/Extreme SSD/Rogue Style Game/build/CMakeFiles/edit_cache.dir
-/Volumes/Extreme SSD/Rogue Style Game/build/CMakeFiles/rebuild_cache.dir

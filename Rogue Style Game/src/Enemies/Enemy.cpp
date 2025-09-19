@@ -1,6 +1,8 @@
 #include "Enemy.h"
 #include <iostream>
 #include <vector>
+#include "../Pathfinding/PathPointNode.h"
+#include "../Coords.h"
 
 Enemy::Enemy()
 {
@@ -24,69 +26,85 @@ void Enemy::changeState(state newState)
 
 std::vector<Coords> Enemy::getPathToPlayer(const Coords& start, const Coords& goal) 
 {
-
     std::vector<Coords> path;
-    path.push_back(start);
-    std::vector<Coords> visited;
-    Coords current = start;
-    visited.push_back(current);
-    int steps = 0;
-    int maxsteps = gameManager->mapobj.width * gameManager->mapobj.height; // Prevent infinite loops
-    std::vector<Coords> directions =
-    {
-        Coords(-1, 0),
-        Coords(1, 0),
-        Coords(0, -1),
-        Coords(0, 1)
-    };
-    Coords lastBranchPoint = current;
-    while (current != goal && steps < maxsteps) 
-    {
-       
-        steps++;
-        bool moved = false;
-        //sort directsions by direction to goal
-        std::sort(directions.begin(), directions.end(), [&](const Coords& a, const Coords& b) {
-            int currentDist = std::abs(current.x - goal.x) + std::abs(current.y - goal.y);
-            int distA = std::abs((current.x + a.x) - goal.x) + std::abs((current.y + a.y) - goal.y);
-            int distB = std::abs((current.x + b.x) - goal.x) + std::abs((current.y + b.y) - goal.y);
-            return (currentDist - distA) > (currentDist - distB); // Sort by distance *reduction*
-        });
+    std::vector<Coords> openPoints = gameManager->mapobj.openPoints;
+    std::vector<PathPointNode*> unTraversed;
+    std::vector<PathPointNode*> traversed;
 
-        for (const Coords& dir : directions) 
+
+    PathPointNode* startNode = new PathPointNode(start, openPoints, goal); 
+    startNode->parent = nullptr;
+    unTraversed.push_back(startNode);
+
+    bool pathFound = false;
+
+    while(!unTraversed.empty() && !pathFound) 
+    {
+        PathPointNode* currentNode = unTraversed.front(); 
+        unTraversed.erase(unTraversed.begin());
+        traversed.push_back(currentNode);
+
+        if(currentNode->CurrentPoint == goal) 
         {
-            int nx = current.x + dir.x;
-            int ny = current.y + dir.y;
-            Coords neighbor(nx, ny);
-            if (gameManager->pointinBounds(neighbor) &&
-                std::find(visited.begin(), visited.end(), neighbor) == visited.end() &&
-                gameManager->map[nx][ny] == HallSpace) 
+            pathFound = true;
+            PathPointNode* pathNode = currentNode;
+            while(pathNode != nullptr) 
             {
-                current = neighbor;
-                path.push_back(current);
-                visited.push_back(current);
-                lastBranchPoint = current;
-                moved = true;
-                break; // Move to the next step in the path
+                path.push_back(pathNode->CurrentPoint); 
+                pathNode = pathNode->parent;
             }
-            else
-            {
-                lastBranchPoint = current;
-            }
+            std::reverse(path.begin(), path.end()); 
+            break;
         }
-        if (!moved) 
+
+        for(Coords& neighbor : currentNode->neighbors) 
         {
-            current = lastBranchPoint;
-            break; // No valid moves available, stop the loop
+            bool hasTraversed = false;
+            for(PathPointNode* traversedNode : traversed) 
+            {
+                if(traversedNode->CurrentPoint == neighbor)
+                {
+                    hasTraversed = true;
+                    break;
+                }
+            }
+            if(hasTraversed) 
+            {
+                continue;
+            }
+
+            bool hasNotTraversed = false;
+            for(PathPointNode* unTraversedNode : unTraversed) 
+            {
+                if(unTraversedNode->CurrentPoint == neighbor) 
+                {
+                    hasNotTraversed = true;
+                    break;
+                }
+            }
+            if(!hasNotTraversed) 
+            {
+                PathPointNode* neighborNode = new PathPointNode(neighbor, openPoints, goal);
+                if (!traversed.empty()) {
+                    neighborNode->parent = traversed.back();
+                } 
+                else 
+                {
+                    neighborNode->parent = nullptr;
+                }
+                unTraversed.push_back(neighborNode);
+            }
         }
     }
 
-    //filter out all but most direct path
-    for(int i = 0; i < path.size(); i++)
+    for(PathPointNode* node : unTraversed) 
     {
-
+        delete node;
     }
-
+    for(PathPointNode* node : traversed) 
+    {
+        delete node;
+    }
 
     return path;
 }
@@ -125,6 +143,12 @@ void Enemy::huntBehavior(Player player)
         changeState(idle);
         return; // No path found, stay in place
     }
+    Coords potentialMovePoint = curLocation + moveDirection;
+    if((!gameManager->pointinBounds(potentialMovePoint) || gameManager->map[potentialMovePoint.x][potentialMovePoint.y] != HallSpace))
+    {
+        return;
+        //next point invalid or occupied do not move
+    }
     gameManager->map[curLocation.x][curLocation.y] = HallSpace; // Clear the enemy's current position on the map
     curLocation = curLocation + moveDirection;
     if(!gameManager->pointinBounds(curLocation))
@@ -135,7 +159,7 @@ void Enemy::huntBehavior(Player player)
     std::cout << "Enemy is moving in direction: (" << moveDirection.x << ", " << moveDirection.y << ")" << std::endl;
 
 
-    gameManager->map[curLocation.x][curLocation.y] = EnemySymbol; // Update thegameManager->map with
+    gameManager->map[curLocation.x][curLocation.y] = EnemySymbol; 
 }
 
 void Enemy::idleBehavior()
@@ -180,9 +204,9 @@ Coords Enemy::checkForUnblockedNeighbors()
         Coords(1, 0)   // right
     };
 
-    for(int i = 0; i < 4; i++)
+    for(Coords& direction : directions)
     {
-        Coords neighbor = curLocation + directions[i];
+        Coords neighbor = curLocation + direction;
         std::cout << "Checking neighbor: (" << neighbor.x << ", " << neighbor.y << ")" << std::endl;
         if(neighbor.x < 0 || neighbor.x >= gameManager->mapobj.width ||
            neighbor.y < 0 || neighbor.y >= gameManager->mapobj.height)
@@ -207,7 +231,7 @@ Coords Enemy::checkForUnblockedNeighbors()
 
 bool Enemy::checkIfPlayerInRange()
 {
-    for(const Coords& visionPoint : vision)
+    for(Coords& visionPoint : vision)
     {
         if(visionPoint.x < 0 || visionPoint.x >= gameManager->mapobj.width ||
            visionPoint.y < 0 || visionPoint.y >= gameManager->mapobj.height)
@@ -219,12 +243,12 @@ bool Enemy::checkIfPlayerInRange()
             return true; // Player is within the enemy's vision
         }
     }
-    return false; // Change this based on actual game logic
+    return false;
 }
 
 void Enemy::getVision()
 {
-    vision.clear(); // Clear previous vision
+    vision.clear();
     for(int x = curLocation.x - range; x < curLocation.x + range; x++)
     {
         for(int y = curLocation.y - range; y < curLocation.y + range; y++)

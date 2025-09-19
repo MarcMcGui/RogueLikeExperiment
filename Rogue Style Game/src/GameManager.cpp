@@ -56,11 +56,20 @@ void GameManager::drawMap()
 char GameManager::getInput() {
     char buf = 0;
     struct termios old = {};
-    if (tcgetattr(STDIN_FILENO, &old) < 0) return 0;
+    if (tcgetattr(STDIN_FILENO, &old) < 0) 
+    {
+        return 0;
+    }
     struct termios newt = old;
     newt.c_lflag &= ~(ICANON | ECHO);
-    if (tcsetattr(STDIN_FILENO, TCSANOW, &newt) < 0) return 0;
-    if (read(STDIN_FILENO, &buf, 1) < 0) buf = 0;
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &newt) < 0) 
+    {
+        return 0;
+    }
+    if (read(STDIN_FILENO, &buf, 1) < 0)
+    {
+        buf = 0;
+    } 
     tcsetattr(STDIN_FILENO, TCSANOW, &old);
     return buf;
 }
@@ -172,6 +181,7 @@ bool GameManager::checkCol(Coords newSpot, std::vector<std::vector<char>> map)
     return true; 
 }
 
+//TODO: meant for when implementing player sight/fog of war mechanics mechanics
 void GameManager::determineEnemiesInView()
 {
     for(int i = 0; i < player.visionSize; i++)
@@ -223,7 +233,7 @@ Enemy* GameManager::getEnemyAtCoords(Coords coord)
     {
         if(enemies[i].curLocation == coord)
         {
-        std::cout << "found enemy (" << coord.x << ", " << coord.y << ")" << std::endl;
+            std::cout << "found enemy (" << coord.x << ", " << coord.y << ")" << std::endl;
             return &enemies[i];
         }
     }

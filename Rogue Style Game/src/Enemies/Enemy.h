@@ -21,13 +21,16 @@ class Enemy
         Enemy(float h, float d, float r);
         Coords curLocation;
         std::vector<Coords> vision;
+        
         enum state
         {
             idle = 0,
             hunting = 1,
             attacking = 2,
             fleeing = 3
-        } currentState;
+        } 
+
+        currentState;
         std::vector<std::vector<char>> map;
         void changeState(state newState);
         void move();

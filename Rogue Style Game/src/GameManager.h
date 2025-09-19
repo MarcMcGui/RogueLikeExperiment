@@ -27,6 +27,7 @@ class GameManager
         int numEnemies;
         int actualEnemyCount;
         Item* items;
+        int CurrentLevel;
         void advanceTurn();
         void drawViewFrame();
         void moveEnemies();
